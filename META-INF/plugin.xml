@@ -1,0 +1,23 @@
+<idea-plugin version="2">
+    <id>org.intellij.scratch</id>
+    <name>IntelliJ Scratch</name>
+    <version>0.1</version>
+    <vendor email="sergey.ignatov@jetbrains.com" url="http://www.jetbrains.com">JetBrains</vendor>
+
+    <description><![CDATA[
+      <b>*scratch*</b> buffer for IntelliJ
+      ]]></description>
+
+    <change-notes><![CDATA[
+      initial
+      ]]>
+    </change-notes>
+
+    <idea-version since-build="129.1"/>
+    <actions>
+        <action id="NewScratchFileAction" class="org.intellij.scratch.NewScratchFileAction" text="*scratch*"
+                description="New *scratch* File">
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
