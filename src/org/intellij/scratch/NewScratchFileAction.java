@@ -123,15 +123,14 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
 
         for (FileType fileType : allFileTypes) {
             if (fileType != StdFileTypes.GUI_DESIGNER_FORM &&
-                    fileType != StdFileTypes.IDEA_MODULE &&
-                    fileType != StdFileTypes.IDEA_PROJECT &&
-                    fileType != StdFileTypes.IDEA_WORKSPACE &&
-                    fileType != FileTypes.ARCHIVE &&
-                    fileType != FileTypes.UNKNOWN &&
-                    fileType != FileTypes.PLAIN_TEXT &&
-                    !(fileType instanceof AbstractFileType) &&
-                    !fileType.isBinary() &&
-                    !fileType.isReadOnly()) {
+                fileType != StdFileTypes.IDEA_MODULE &&
+                fileType != StdFileTypes.IDEA_PROJECT &&
+                fileType != StdFileTypes.IDEA_WORKSPACE &&
+                fileType != FileTypes.ARCHIVE &&
+                fileType != FileTypes.UNKNOWN &&
+                !(fileType instanceof AbstractFileType) &&
+                !fileType.isBinary() &&
+                !fileType.isReadOnly()) {
                 mySourceWrappers.add(fileType);
             }
         }
