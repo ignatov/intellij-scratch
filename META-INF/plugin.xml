@@ -14,6 +14,11 @@
     </change-notes>
 
     <idea-version since-build="129.1"/>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <virtualFileSystem key="scratchDummy" implementationClass="org.intellij.scratch.NewScratchFileAction$ScratchFileSystem"/>
+    </extensions>
+
     <actions>
         <action id="NewScratchFileAction" class="org.intellij.scratch.NewScratchFileAction" text="*scratch*"
                 description="New *scratch* File">

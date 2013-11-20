@@ -12,11 +12,15 @@ import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileManager;
+import com.intellij.openapi.vfs.VirtualFileSystem;
+import com.intellij.openapi.vfs.ex.dummy.DummyFileSystem;
 import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.ui.CollectionComboBoxModel;
 import com.intellij.ui.ComboboxSpeedSearch;
 import com.intellij.ui.ListCellRendererWrapper;
 import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.containers.HashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.generate.tostring.util.StringUtil;
@@ -25,6 +29,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -46,9 +51,42 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
             project.putUserData(SCRATCH_LANGUAGE, language);
             LanguageFileType associatedFileType = language.getAssociatedFileType();
             String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
-            VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "");
+            VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "") { // todo: name clash
+                @NotNull
+                @Override
+                public VirtualFileSystem getFileSystem() {
+                    return ScratchFileSystem.getScratchFileSystem();
+                }
+            };
+            ScratchFileSystem.getScratchFileSystem().addFile(virtualFile);
             OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+        }
+    }
+
+    public static class ScratchFileSystem extends DummyFileSystem {
+        private static final String PROTOCOL = "scratchDummy";
+        private final Map<String, VirtualFile> myCachedFiles = new HashMap<String, VirtualFile>(); // todo: cache per project
+
+        public static ScratchFileSystem getScratchFileSystem() {
+            return (ScratchFileSystem) VirtualFileManager.getInstance().getFileSystem(PROTOCOL);
+        }
+
+        @Override
+        public VirtualFile findFileByPath(@NotNull String path) {
+            VirtualFile file = myCachedFiles.get(path);
+            if (file != null && file.isValid()) return file;
+            return null;
+        }
+
+        public void addFile(@NotNull VirtualFile file) {
+            myCachedFiles.put(file.getPath(), file);
+        }
+
+        @NotNull
+        @Override
+        public String getProtocol() {
+            return PROTOCOL;
         }
     }
 
