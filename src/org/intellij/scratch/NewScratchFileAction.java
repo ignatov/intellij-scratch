@@ -53,10 +53,8 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
     }
 
     private static class MyDialog extends DialogWrapper {
-        @Nullable
-        private Project myProject;
-        @NotNull
-        private JComboBox myComboBox;
+        @Nullable private Project myProject;
+        @NotNull private JComboBox myComboBox;
 
         protected MyDialog(@Nullable Project project) {
             super(project);
