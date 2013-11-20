@@ -5,11 +5,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.fileTypes.FileTypeManager;
-import com.intellij.openapi.fileTypes.FileTypes;
-import com.intellij.openapi.fileTypes.StdFileTypes;
-import com.intellij.openapi.fileTypes.impl.AbstractFileType;
+import com.intellij.openapi.fileTypes.LanguageFileType;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
@@ -23,10 +19,10 @@ import com.intellij.ui.ListCellRendererWrapper;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.generate.tostring.util.StringUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -35,7 +31,7 @@ import java.util.Set;
  * @author ignatov
  */
 public class NewScratchFileAction extends AnAction implements DumbAware {
-    private static final Key<FileType> SCRATCH_FILE_TYPE = Key.create("SCRATCH_FILE_TYPE");
+    private static final Key<Language> SCRATCH_LANGUAGE = Key.create("SCRATCH_LANGUAGE");
 
     @Override
     public void actionPerformed(AnActionEvent e) {
@@ -46,22 +42,26 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         myDialog.show();
 
         if (myDialog.isOK()) {
-            FileType type = myDialog.getType();
-            project.putUserData(SCRATCH_FILE_TYPE, type);
-            VirtualFile virtualFile = new LightVirtualFile("scratch." + type.getDefaultExtension(), type, "");
+            Language language = myDialog.getType();
+            project.putUserData(SCRATCH_LANGUAGE, language);
+            LanguageFileType associatedFileType = language.getAssociatedFileType();
+            String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
+            VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "");
             OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
         }
     }
 
     private static class MyDialog extends DialogWrapper {
-        @Nullable private Project myProject;
-        @NotNull private JComboBox myComboBox;
+        @Nullable
+        private Project myProject;
+        @NotNull
+        private JComboBox myComboBox;
 
         protected MyDialog(@Nullable Project project) {
             super(project);
             myProject = project;
-            setTitle("Specify the Type");
+            setTitle("Specify the Language");
             init();
         }
 
@@ -69,33 +69,34 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         @Override
         protected JComponent createCenterPanel() {
             JPanel panel = new JPanel(new BorderLayout());
-            myComboBox = createCombo(getFileTypes());
+            myComboBox = createCombo(getLanguages());
             panel.add(myComboBox, BorderLayout.CENTER);
             return panel;
         }
 
-        public FileType getType() {
-            return ((FileType) myComboBox.getSelectedItem());
+        public Language getType() {
+            return ((Language) myComboBox.getSelectedItem());
         }
 
-        private JComboBox createCombo(List<FileType> mySourceWrappers) {
-            JComboBox jComboBox = new ComboBox(new CollectionComboBoxModel(mySourceWrappers));
-            jComboBox.setRenderer(new ListCellRendererWrapper<FileType>() {
+        private JComboBox createCombo(List<Language> languages) {
+            JComboBox jComboBox = new ComboBox(new CollectionComboBoxModel(languages));
+            jComboBox.setRenderer(new ListCellRendererWrapper<Language>() {
                 @Override
-                public void customize(JList list, FileType value, int index, boolean selected, boolean hasFocus) {
-                    if (value != null) {
-                        setText(value.getName());
-                        setIcon(value.getIcon());
+                public void customize(JList list, Language lang, int index, boolean selected, boolean hasFocus) {
+                    if (lang != null) {
+                        setText(lang.getDisplayName());
+                        LanguageFileType associatedLanguage = lang.getAssociatedFileType();
+                        if (associatedLanguage != null) setIcon(associatedLanguage.getIcon());
                     }
                 }
             });
             new ComboboxSpeedSearch(jComboBox) {
                 @Override
                 protected String getElementText(Object element) {
-                    return element instanceof FileType ? ((FileType) element).getName() : null;
+                    return element instanceof Language ? ((Language) element).getDisplayName() : null;
                 }
             };
-            FileType previous = myProject != null ? myProject.getUserData(SCRATCH_FILE_TYPE) : null;
+            Language previous = myProject != null ? myProject.getUserData(SCRATCH_LANGUAGE) : null;
             if (previous != null) {
                 jComboBox.setSelectedItem(previous);
             }
@@ -110,37 +111,19 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         }
     }
 
-    private static List<FileType> getFileTypes() {
-        final Set<FileType> allFileTypes = ContainerUtil.newHashSet();
-        Collections.addAll(allFileTypes, FileTypeManager.getInstance().getRegisteredFileTypes());
-        for (Language language : Language.getRegisteredLanguages()) {
-            final FileType fileType = language.getAssociatedFileType();
-            if (fileType != null) {
-                allFileTypes.add(fileType);
-            }
-        }
-        List<FileType> mySourceWrappers = ContainerUtil.newArrayList();
-
-        for (FileType fileType : allFileTypes) {
-            if (fileType != StdFileTypes.GUI_DESIGNER_FORM &&
-                fileType != StdFileTypes.IDEA_MODULE &&
-                fileType != StdFileTypes.IDEA_PROJECT &&
-                fileType != StdFileTypes.IDEA_WORKSPACE &&
-                fileType != FileTypes.ARCHIVE &&
-                fileType != FileTypes.UNKNOWN &&
-                !(fileType instanceof AbstractFileType) &&
-                !fileType.isBinary() &&
-                !fileType.isReadOnly()) {
-                mySourceWrappers.add(fileType);
-            }
-        }
-
-        Collections.sort(mySourceWrappers, new Comparator<FileType>() {
+    private static List<Language> getLanguages() {
+        Set<Language> result = ContainerUtil.newTreeSet(new Comparator<Language>() {
             @Override
-            public int compare(FileType fileType, FileType fileType2) {
-                return fileType.getName().compareTo(fileType2.getName());
+            public int compare(Language l1, Language l2) {
+                return l1.getDisplayName().compareTo(l2.getDisplayName());
             }
         });
-        return mySourceWrappers;
+        for (Language lang : Language.getRegisteredLanguages()) {
+            if (!StringUtil.isEmpty(lang.getDisplayName())) result.add(lang);
+            for (Language dialect : lang.getDialects()) {
+                if (!"$XSLT".equals(dialect.getDisplayName())) result.add(dialect);
+            }
+        }
+        return ContainerUtil.newArrayList(result);
     }
 }
