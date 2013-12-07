@@ -21,6 +21,7 @@ import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.ui.CollectionComboBoxModel;
 import com.intellij.ui.ComboboxSpeedSearch;
 import com.intellij.ui.ListCellRendererWrapper;
+import com.intellij.util.ObjectUtils;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.HashMap;
 import org.jetbrains.annotations.NotNull;
@@ -29,16 +30,15 @@ import org.jetbrains.generate.tostring.util.StringUtil;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Comparator;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * @author ignatov
  */
 public class NewScratchFileAction extends AnAction implements DumbAware {
   private static final Key<Language> SCRATCH_LANGUAGE = Key.create("SCRATCH_LANGUAGE");
+  private static final Key<Map<Language, Integer>> SCRATCH_LANGUAGE_COUNTER_MAP = Key.create("SCRATCH_LANGUAGE_COUNTER_MAP");
 
   @Override
   public void actionPerformed(AnActionEvent e) {
@@ -51,9 +51,14 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
     if (dialog.isOK()) {
       Language language = dialog.getType();
       project.putUserData(SCRATCH_LANGUAGE, language);
+      Map<Language, Integer> previous = project.getUserData(SCRATCH_LANGUAGE_COUNTER_MAP);
+      Map<Language, Integer> updated = updateMap(previous, language);
+      project.putUserData(SCRATCH_LANGUAGE_COUNTER_MAP, updated);
+      Integer integer = ObjectUtils.notNull(updated.get(language), 0);
       LanguageFileType associatedFileType = language.getAssociatedFileType();
       String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
-      VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "") { // todo: name clash
+      String index = integer == 1 ? "" : integer + ".";
+      VirtualFile virtualFile = new LightVirtualFile("scratch." + index + defaultExtension, language, "") {
         @NotNull
         @Override
         public VirtualFileSystem getFileSystem() {
@@ -69,6 +74,14 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
       OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
       FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
     }
+  }
+
+  @NotNull
+  private Map<Language,Integer> updateMap(@Nullable Map<Language,Integer> map, @NotNull Language language) {
+    if (map == null) map = new HashMap<Language, Integer>();
+    Integer integer = map.get(language);
+    map.put(language, integer == null ? 1 : ++integer);
+    return map;
   }
 
   public static class ScratchFileSystem extends DummyFileSystem {
