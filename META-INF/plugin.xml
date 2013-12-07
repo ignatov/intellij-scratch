@@ -2,7 +2,7 @@
   <id>org.intellij.scratch</id>
   <name>IntelliJ Scratch</name>
   <version>0.1</version>
-  <vendor email="sergey.ignatov@jetbrains.com" url="http://www.jetbrains.com">JetBrains</vendor>
+  <vendor email="sergey.ignatov@jetbrains.com">Sergey Ignatov</vendor>
 
   <description><![CDATA[
       <b>*scratch*</b> buffer for IntelliJ
