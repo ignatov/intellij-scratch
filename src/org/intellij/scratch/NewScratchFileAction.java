@@ -8,6 +8,8 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.LanguageFileType;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.project.ProjectManagerAdapter;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.util.Key;
@@ -40,7 +42,7 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
 
   @Override
   public void actionPerformed(AnActionEvent e) {
-    Project project = e.getProject();
+    final Project project = e.getProject();
     if (project == null) return;
 
     MyDialog dialog = new MyDialog(project);
@@ -57,6 +59,11 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         public VirtualFileSystem getFileSystem() {
           return ScratchFileSystem.getScratchFileSystem();
         }
+
+        @Override
+        public String getPath() {
+          return "/" + project.getLocationHash() + super.getPath();
+        }
       };
       ScratchFileSystem.getScratchFileSystem().addFile(virtualFile);
       OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
@@ -66,10 +73,30 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
 
   public static class ScratchFileSystem extends DummyFileSystem {
     private static final String PROTOCOL = "scratchDummy";
-    private final Map<String, VirtualFile> myCachedFiles = new HashMap<String, VirtualFile>(); // todo: cache per project
+    private final Map<String, VirtualFile> myCachedFiles = new HashMap<String, VirtualFile>();
+
+    private ProjectManagerAdapter myProjectManagerListener = new ProjectManagerAdapter() {
+      @Override
+      public void projectClosed(Project project) {
+        String hash = project.getLocationHash();
+        Set<String> toRemove = ContainerUtil.newHashSet();
+        for (String path : myCachedFiles.keySet()) {
+          if (path.contains(hash)) {
+            toRemove.add(path);
+          }
+        }
+        for (String s : toRemove) {
+          myCachedFiles.remove(s);
+        }
+      }
+    };
 
     public static ScratchFileSystem getScratchFileSystem() {
       return (ScratchFileSystem) VirtualFileManager.getInstance().getFileSystem(PROTOCOL);
+    }
+
+    public ScratchFileSystem() {
+      ProjectManager.getInstance().addProjectManagerListener(myProjectManagerListener);
     }
 
     @Override
@@ -82,7 +109,6 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
     public void addFile(@NotNull VirtualFile file) {
       myCachedFiles.put(file.getPath(), file);
     }
-
 
     @NotNull
     @Override
