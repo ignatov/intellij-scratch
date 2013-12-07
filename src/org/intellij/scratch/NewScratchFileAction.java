@@ -36,130 +36,133 @@ import java.util.Set;
  * @author ignatov
  */
 public class NewScratchFileAction extends AnAction implements DumbAware {
-    private static final Key<Language> SCRATCH_LANGUAGE = Key.create("SCRATCH_LANGUAGE");
+  private static final Key<Language> SCRATCH_LANGUAGE = Key.create("SCRATCH_LANGUAGE");
 
-    @Override
-    public void actionPerformed(AnActionEvent e) {
-        Project project = e.getProject();
-        if (project == null) return;
+  @Override
+  public void actionPerformed(AnActionEvent e) {
+    Project project = e.getProject();
+    if (project == null) return;
 
-        MyDialog dialog = new MyDialog(project);
-        dialog.show();
+    MyDialog dialog = new MyDialog(project);
+    dialog.show();
 
-        if (dialog.isOK()) {
-            Language language = dialog.getType();
-            project.putUserData(SCRATCH_LANGUAGE, language);
-            LanguageFileType associatedFileType = language.getAssociatedFileType();
-            String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
-            VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "") { // todo: name clash
-                @NotNull
-                @Override
-                public VirtualFileSystem getFileSystem() {
-                    return ScratchFileSystem.getScratchFileSystem();
-                }
-            };
-            ScratchFileSystem.getScratchFileSystem().addFile(virtualFile);
-            OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
-        }
-    }
-
-    public static class ScratchFileSystem extends DummyFileSystem {
-        private static final String PROTOCOL = "scratchDummy";
-        private final Map<String, VirtualFile> myCachedFiles = new HashMap<String, VirtualFile>(); // todo: cache per project
-
-        public static ScratchFileSystem getScratchFileSystem() {
-            return (ScratchFileSystem) VirtualFileManager.getInstance().getFileSystem(PROTOCOL);
-        }
-
-        @Override
-        public VirtualFile findFileByPath(@NotNull String path) {
-            VirtualFile file = myCachedFiles.get(path);
-            if (file != null && file.isValid()) return file;
-            return null;
-        }
-
-        public void addFile(@NotNull VirtualFile file) {
-            myCachedFiles.put(file.getPath(), file);
-        }
-
+    if (dialog.isOK()) {
+      Language language = dialog.getType();
+      project.putUserData(SCRATCH_LANGUAGE, language);
+      LanguageFileType associatedFileType = language.getAssociatedFileType();
+      String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
+      VirtualFile virtualFile = new LightVirtualFile("scratch." + defaultExtension, language, "") { // todo: name clash
         @NotNull
         @Override
-        public String getProtocol() {
-            return PROTOCOL;
+        public VirtualFileSystem getFileSystem() {
+          return ScratchFileSystem.getScratchFileSystem();
         }
+      };
+      ScratchFileSystem.getScratchFileSystem().addFile(virtualFile);
+      OpenFileDescriptor descriptor = new OpenFileDescriptor(project, virtualFile);
+      FileEditorManager.getInstance(project).openTextEditor(descriptor, true);
+    }
+  }
+
+  public static class ScratchFileSystem extends DummyFileSystem {
+    private static final String PROTOCOL = "scratchDummy";
+    private final Map<String, VirtualFile> myCachedFiles = new HashMap<String, VirtualFile>(); // todo: cache per project
+
+    public static ScratchFileSystem getScratchFileSystem() {
+      return (ScratchFileSystem) VirtualFileManager.getInstance().getFileSystem(PROTOCOL);
     }
 
-    private static class MyDialog extends DialogWrapper {
-        @Nullable private Project myProject;
-        @NotNull private JComboBox myComboBox;
+    @Override
+    public VirtualFile findFileByPath(@NotNull String path) {
+      VirtualFile file = myCachedFiles.get(path);
+      if (file != null && file.isValid()) return file;
+      return null;
+    }
 
-        protected MyDialog(@Nullable Project project) {
-            super(project);
-            myProject = project;
-            setTitle("Specify the Language");
-            init();
-        }
+    public void addFile(@NotNull VirtualFile file) {
+      myCachedFiles.put(file.getPath(), file);
+    }
 
-        @Nullable
+
+    @NotNull
+    @Override
+    public String getProtocol() {
+      return PROTOCOL;
+    }
+  }
+
+  private static class MyDialog extends DialogWrapper {
+    @Nullable
+    private Project myProject;
+    @NotNull
+    private JComboBox myComboBox;
+
+    protected MyDialog(@Nullable Project project) {
+      super(project);
+      myProject = project;
+      setTitle("Specify the Language");
+      init();
+    }
+
+    @Nullable
+    @Override
+    protected JComponent createCenterPanel() {
+      JPanel panel = new JPanel(new BorderLayout());
+      myComboBox = createCombo(getLanguages());
+      panel.add(myComboBox, BorderLayout.CENTER);
+      return panel;
+    }
+
+    public Language getType() {
+      return ((Language) myComboBox.getSelectedItem());
+    }
+
+    private JComboBox createCombo(List<Language> languages) {
+      JComboBox jComboBox = new ComboBox(new CollectionComboBoxModel(languages));
+      jComboBox.setRenderer(new ListCellRendererWrapper<Language>() {
         @Override
-        protected JComponent createCenterPanel() {
-            JPanel panel = new JPanel(new BorderLayout());
-            myComboBox = createCombo(getLanguages());
-            panel.add(myComboBox, BorderLayout.CENTER);
-            return panel;
+        public void customize(JList list, Language lang, int index, boolean selected, boolean hasFocus) {
+          if (lang != null) {
+            setText(lang.getDisplayName());
+            LanguageFileType associatedLanguage = lang.getAssociatedFileType();
+            if (associatedLanguage != null) setIcon(associatedLanguage.getIcon());
+          }
         }
-
-        public Language getType() {
-            return ((Language) myComboBox.getSelectedItem());
-        }
-
-        private JComboBox createCombo(List<Language> languages) {
-            JComboBox jComboBox = new ComboBox(new CollectionComboBoxModel(languages));
-            jComboBox.setRenderer(new ListCellRendererWrapper<Language>() {
-                @Override
-                public void customize(JList list, Language lang, int index, boolean selected, boolean hasFocus) {
-                    if (lang != null) {
-                        setText(lang.getDisplayName());
-                        LanguageFileType associatedLanguage = lang.getAssociatedFileType();
-                        if (associatedLanguage != null) setIcon(associatedLanguage.getIcon());
-                    }
-                }
-            });
-            new ComboboxSpeedSearch(jComboBox) {
-                @Override
-                protected String getElementText(Object element) {
-                    return element instanceof Language ? ((Language) element).getDisplayName() : null;
-                }
-            };
-            Language previous = myProject != null ? myProject.getUserData(SCRATCH_LANGUAGE) : null;
-            if (previous != null) {
-                jComboBox.setSelectedItem(previous);
-            }
-
-            return jComboBox;
-        }
-
-        @Nullable
+      });
+      new ComboboxSpeedSearch(jComboBox) {
         @Override
-        public JComponent getPreferredFocusedComponent() {
-            return myComboBox;
+        protected String getElementText(Object element) {
+          return element instanceof Language ? ((Language) element).getDisplayName() : null;
         }
+      };
+      Language previous = myProject != null ? myProject.getUserData(SCRATCH_LANGUAGE) : null;
+      if (previous != null) {
+        jComboBox.setSelectedItem(previous);
+      }
+
+      return jComboBox;
     }
 
-    private static List<Language> getLanguages() {
-        Set<Language> result = ContainerUtil.newTreeSet(new Comparator<Language>() {
-            @Override
-            public int compare(Language l1, Language l2) {
-                return l1.getDisplayName().compareTo(l2.getDisplayName());
-            }
-        });
-        for (Language lang : Language.getRegisteredLanguages()) {
-            if (!StringUtil.isEmpty(lang.getDisplayName())) result.add(lang);
-            for (Language dialect : lang.getDialects()) {
-                if (!"$XSLT".equals(dialect.getDisplayName())) result.add(dialect);
-            }
-        }
-        return ContainerUtil.newArrayList(result);
+    @Nullable
+    @Override
+    public JComponent getPreferredFocusedComponent() {
+      return myComboBox;
     }
+  }
+
+  private static List<Language> getLanguages() {
+    Set<Language> result = ContainerUtil.newTreeSet(new Comparator<Language>() {
+      @Override
+      public int compare(Language l1, Language l2) {
+        return l1.getDisplayName().compareTo(l2.getDisplayName());
+      }
+    });
+    for (Language lang : Language.getRegisteredLanguages()) {
+      if (!StringUtil.isEmpty(lang.getDisplayName())) result.add(lang);
+      for (Language dialect : lang.getDialects()) {
+        if (!"$XSLT".equals(dialect.getDisplayName())) result.add(dialect);
+      }
+    }
+    return ContainerUtil.newArrayList(result);
+  }
 }
