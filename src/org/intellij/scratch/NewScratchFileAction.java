@@ -43,11 +43,11 @@ public class NewScratchFileAction extends AnAction implements DumbAware {
         Project project = e.getProject();
         if (project == null) return;
 
-        MyDialog myDialog = new MyDialog(project);
-        myDialog.show();
+        MyDialog dialog = new MyDialog(project);
+        dialog.show();
 
-        if (myDialog.isOK()) {
-            Language language = myDialog.getType();
+        if (dialog.isOK()) {
+            Language language = dialog.getType();
             project.putUserData(SCRATCH_LANGUAGE, language);
             LanguageFileType associatedFileType = language.getAssociatedFileType();
             String defaultExtension = associatedFileType != null ? associatedFileType.getDefaultExtension() : "unknown";
