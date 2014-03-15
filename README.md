@@ -1,6 +1,8 @@
 intellij-scratch
 ================
 
+## Merged into IntelliJ IDEA since 13.1
+
 Emacs-like *scratch* buffer for IntelliJ.
 
 [Download](intellij-scratch.jar?raw=true) the plugin and intall it via **Install from disk** action.
